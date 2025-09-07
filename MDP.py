@@ -127,7 +127,7 @@ class MDP:
         doneIterating = False
         iterId = 0
         
-        while not doneIterating:
+        while not doneIterating and iterId < nIterations:
             V = self.evaluatePolicy(policy)
             newPolicy = self.extractPolicy(V)
             if np.array_equal(newPolicy, policy):
@@ -152,18 +152,18 @@ class MDP:
         iterId -- # of iterations performed: scalar
         epsilon -- ||V^n-V^n+1||_inf: scalar'''
         
-        currV = initialV
+        V = initialV.astype(float).copy()
         iterId = 0
         epsilon = np.inf
         
-        sIdx = np.arange(self.nStates)
-        Rpi = self.R[policy, sIdx]
-        Tpi = self.T[policy, sIdx, :]
-        
-        for s in range(self.nStates):
-            for a in range(self.nActions):
-                reward = self.R[s, policy[s]]
-                V = reward + self.discount * (np.dot(self.T[a, s, :], currV))
+        while (iterId < nIterations) and (epsilon > tolerance):
+            V_new = V.copy()
+            for s in range(self.nStates):
+                a = policy[s]
+                V_new[s] = self.R[a, s] + self.discount * np.dot(self.T[a, s, :], V)
+            epsilon = np.max(np.abs(V_new - V))
+            iterId += 1
+            V = V_new
 
         return [V,iterId,epsilon]
 
@@ -185,12 +185,19 @@ class MDP:
         iterId -- # of iterations peformed by modified policy iteration: scalar
         epsilon -- ||V^n-V^n+1||_inf: scalar'''
 
-        # temporary values to ensure that the code compiles until this
-        # function is coded
-        policy = np.zeros(self.nStates)
-        V = np.zeros(self.nStates)
+        V = initialV.astype(float).copy()
         iterId = 0
-        epsilon = 0
+        epsilon = np.inf
+        policy = initialPolicy.copy()
+
+        while (iterId < nIterations) and (epsilon > tolerance):
+            V, _, epsilon = self.evaluatePolicyPartially(policy, V, nEvalIterations)
+
+            newPolicy = self.extractPolicy(V)
+            iterId += 1
+            if np.array_equal(newPolicy, policy) or epsilon <= tolerance:
+                break
+            policy = newPolicy
 
         return [policy,V,iterId,epsilon]
         

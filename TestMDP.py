@@ -28,4 +28,9 @@ print("Policy Iteration:")
 print([policy,V,iterId])
 
 [V,iterId,epsilon] = mdp.evaluatePolicyPartially(np.array([1,0,1,0]),np.array([0,10,0,13]))
+print("Partial Policy Evaluation:")
+print([V, iterId, epsilon])
+
 [policy,V,iterId,tolerance] = mdp.modifiedPolicyIteration(np.array([1,0,1,0]),np.array([0,10,0,13]))
+print("Modified Policy Iteration:")
+print([policy,V,iterId,tolerance])
