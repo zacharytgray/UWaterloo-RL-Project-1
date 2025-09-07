@@ -28,7 +28,7 @@ class MDP:
         
     def valueIteration(self,initialV,nIterations=np.inf,tolerance=0.01):
         '''Value iteration procedure
-        V <-- max_a R^a + gamma T^a V
+        V <-- max_a R^a + e
 
         Inputs:
         initialV -- Initial value function: array of |S| entries
@@ -40,12 +40,30 @@ class MDP:
         iterId -- # of iterations performed: scalar
         epsilon -- ||V^n-V^n+1||_inf: scalar'''
         
-        # temporary values to ensure that the code compiles until this
-        # function is coded
-        V = np.zeros(self.nStates)
+        V = initialV.copy()
+        gamma = self.discount
         iterId = 0
-        epsilon = 0
+        epsilon = np.inf
+        doneIterating = False
         
+        while not doneIterating:
+            V_new = np.empty_like(V)
+            for s in range(self.nStates):
+                best = -np.inf
+                for a in range(self.nActions):
+                    reward = self.R[a, s]
+                    value = reward + gamma * (np.dot(self.T[a, s, :], V))
+                    if value > best:
+                        best = value
+                V_new[s] = best # Per state update change from the last iteration
+            
+            epsilon = np.max(np.abs(V_new - V)) # Used to see if epsilon is close enough to target
+            V = V_new
+            iterId += 1
+            
+            if (epsilon < tolerance) or (nIterations != np.inf and iterId >= nIterations):
+                doneIterating = True
+            
         return [V,iterId,epsilon]
 
     def extractPolicy(self,V):
@@ -58,9 +76,16 @@ class MDP:
         Output:
         policy -- Policy: array of |S| entries'''
 
-        # temporary values to ensure that the code compiles until this
-        # function is coded
-        policy = np.zeros(self.nStates)
+        policy = np.zeros([self.nStates], dtype=int)
+        
+        for s in range(self.nStates):
+            best = -np.inf
+            for a in range(self.nActions):
+                reward = self.R[a, s]
+                value = reward + self.discount * (np.dot(self.T[a, s, :], V))
+                if value > best:
+                    best = value
+                    policy[s] = a
 
         return policy 
 
@@ -74,9 +99,13 @@ class MDP:
         Ouput:
         V -- Value function: array of |S| entries'''
 
-        # temporary values to ensure that the code compiles until this
-        # function is coded
-        V = np.zeros(self.nStates)
+        sIdx = np.arange(self.nStates)
+        Rpi = self.R[policy, sIdx]
+        Tpi = self.T[policy, sIdx, :]
+    
+        # Solve linear system: V = (I − γ T)^{-1} R
+        A = (np.eye(self.nStates) - (self.discount * Tpi))
+        V = np.linalg.solve(A, Rpi)
 
         return V
         
@@ -94,11 +123,17 @@ class MDP:
         V -- Value function: array of |S| entries
         iterId -- # of iterations peformed by modified policy iteration: scalar'''
 
-        # temporary values to ensure that the code compiles until this
-        # function is coded
-        policy = np.zeros(self.nStates)
-        V = np.zeros(self.nStates)
+        policy = initialPolicy
+        doneIterating = False
         iterId = 0
+        
+        while not doneIterating:
+            V = self.evaluatePolicy(policy)
+            newPolicy = self.extractPolicy(V)
+            if np.array_equal(newPolicy, policy):
+                doneIterating = True
+            policy = newPolicy
+            iterId +=1
 
         return [policy,V,iterId]
             
@@ -116,12 +151,19 @@ class MDP:
         V -- Value function: array of |S| entries
         iterId -- # of iterations performed: scalar
         epsilon -- ||V^n-V^n+1||_inf: scalar'''
-
-        # temporary values to ensure that the code compiles until this
-        # function is coded
-        V = np.zeros(self.nStates)
+        
+        currV = initialV
         iterId = 0
-        epsilon = 0
+        epsilon = np.inf
+        
+        sIdx = np.arange(self.nStates)
+        Rpi = self.R[policy, sIdx]
+        Tpi = self.T[policy, sIdx, :]
+        
+        for s in range(self.nStates):
+            for a in range(self.nActions):
+                reward = self.R[s, policy[s]]
+                V = reward + self.discount * (np.dot(self.T[a, s, :], currV))
 
         return [V,iterId,epsilon]
 
